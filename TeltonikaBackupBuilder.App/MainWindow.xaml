@@ -1,0 +1,49 @@
+﻿<Window x:Class="TeltonikaBackupBuilder.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TeltonikaBackupBuilder.App"
+        mc:Ignorable="d"
+        Title="Teltonika Backup Builder" Height="560" Width="900" MinHeight="520" MinWidth="820">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Orientation="Vertical">
+            <TextBlock Text="Quelle (.tar.gz)" FontWeight="SemiBold" />
+            <DockPanel Margin="0,6,0,0">
+                <Button Content="Auswählen..." Command="{Binding BrowseSourceCommand}" Width="120" DockPanel.Dock="Right" Margin="8,0,0,0" />
+                <TextBox Text="{Binding SourceBackupPath}" IsReadOnly="True" />
+            </DockPanel>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,14,0,0">
+            <TextBlock Text="Hostnamen (eine pro Zeile oder mit Komma/Semikolon getrennt)" FontWeight="SemiBold" />
+            <TextBox Text="{Binding HostnamesInput, UpdateSourceTrigger=PropertyChanged}"
+                     AcceptsReturn="True" Height="130" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,14,0,0">
+            <TextBlock Text="Ausgabeordner" FontWeight="SemiBold" />
+            <TextBox Text="{Binding OutputDirectory, Mode=OneWay}" IsReadOnly="True" Margin="0,6,0,0" />
+            <CheckBox Content="Nach dem Erstellen verifizieren (nur /etc/config/system darf abweichen)"
+                      IsChecked="{Binding VerifyAfterCreate}" Margin="0,8,0,0" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0,14,0,0">
+            <TextBlock Text="Protokoll" FontWeight="SemiBold" />
+            <ListBox ItemsSource="{Binding LogEntries}" Margin="0,6,0,0" />
+        </StackPanel>
+
+        <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
+            <ProgressBar Width="140" Height="18" IsIndeterminate="{Binding IsBusy}" DockPanel.Dock="Right" />
+            <Button Content="Backups erzeugen" Command="{Binding GenerateCommand}" Width="170" Margin="0,0,8,0" DockPanel.Dock="Right" />
+        </DockPanel>
+    </Grid>
+</Window>

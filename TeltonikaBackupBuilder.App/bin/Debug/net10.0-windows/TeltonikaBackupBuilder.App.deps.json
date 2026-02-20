@@ -1,0 +1,23 @@
+{
+  "runtimeTarget": {
+    "name": ".NETCoreApp,Version=v10.0",
+    "signature": ""
+  },
+  "compilationOptions": {},
+  "targets": {
+    ".NETCoreApp,Version=v10.0": {
+      "TeltonikaBackupBuilder.App/1.0.0": {
+        "runtime": {
+          "TeltonikaBackupBuilder.App.dll": {}
+        }
+      }
+    }
+  },
+  "libraries": {
+    "TeltonikaBackupBuilder.App/1.0.0": {
+      "type": "project",
+      "serviceable": false,
+      "sha512": ""
+    }
+  }
+}
