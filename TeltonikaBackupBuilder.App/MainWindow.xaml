@@ -4,9 +4,48 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Teltonika Backup Builder" Height="760" Width="1120" MinHeight="700" MinWidth="1000">
+        Title="Teltonika Backup Builder"
+        Icon="/Assets/AppIcon.ico"
+        Height="760" Width="1120" MinHeight="700" MinWidth="1000" FontSize="13">
+    <Window.Resources>
+        <Style x:Key="ModeTabItemStyle" TargetType="TabItem" BasedOn="{StaticResource {x:Type TabItem}}">
+            <Setter Property="Padding" Value="14,8" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontWeight" Value="Normal" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="PrimaryActionButtonStyle" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="12,6" />
+            <Setter Property="MinHeight" Value="32" />
+        </Style>
+
+        <Style x:Key="SubtleGridSplitterStyle" TargetType="GridSplitter" BasedOn="{StaticResource {x:Type GridSplitter}}">
+            <Setter Property="Width" Value="4" />
+            <Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlDarkBrushKey}}" />
+            <Setter Property="Opacity" Value="0.25" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Stretch" />
+            <Setter Property="ResizeBehavior" Value="PreviousAndNext" />
+            <Setter Property="ResizeDirection" Value="Columns" />
+            <Setter Property="ShowsPreview" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Opacity" Value="0.55" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
     <Grid Margin="14">
-        <TabControl>
+        <TabControl ItemContainerStyle="{StaticResource ModeTabItemStyle}">
             <TabItem Header="Backup duplizieren">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
@@ -44,8 +83,8 @@
                     </StackPanel>
 
                     <DockPanel Grid.Row="4" Margin="0,14,0,0" LastChildFill="False">
-                        <ProgressBar Width="140" Height="18" IsIndeterminate="{Binding IsBusy}" DockPanel.Dock="Right" />
-                        <Button Content="Backups erzeugen" Command="{Binding GenerateCommand}" Width="170" Margin="0,0,8,0" DockPanel.Dock="Right" />
+                        <ProgressBar Width="140" Height="18" IsIndeterminate="{Binding IsBusy}" DockPanel.Dock="Right" Margin="10,0,0,0" />
+                        <Button Content="Backups erzeugen" Command="{Binding GenerateCommand}" Width="170" Margin="0,0,8,0" DockPanel.Dock="Right" Style="{StaticResource PrimaryActionButtonStyle}" />
                     </DockPanel>
                 </Grid>
             </TabItem>
@@ -110,19 +149,20 @@
                     </Grid>
 
                     <DockPanel Grid.Row="3" Margin="0,12,0,0" LastChildFill="False">
-                        <ProgressBar Width="140" Height="18" IsIndeterminate="{Binding IsApiBusy}" DockPanel.Dock="Right" />
-                        <Button Content="Alle Calls ausführen" Command="{Binding ExecuteAllApiCallsCommand}" Width="170" Margin="8,0,0,0" DockPanel.Dock="Right"/>
-                        <Button Content="Ausgewählten Call ausführen" Command="{Binding ExecuteSelectedApiCallCommand}" Width="220" Margin="8,0,0,0" DockPanel.Dock="Right"/>
-                        <Button Content="Backup analysieren + Call-Plan erzeugen" Command="{Binding AnalyzeApiPlanCommand}" Width="280" DockPanel.Dock="Right"/>
+                        <ProgressBar Width="140" Height="18" IsIndeterminate="{Binding IsApiBusy}" DockPanel.Dock="Right" Margin="10,0,0,0" />
+                        <Button Content="Alle Calls ausführen" Command="{Binding ExecuteAllApiCallsCommand}" Width="170" Margin="8,0,0,0" DockPanel.Dock="Right" Style="{StaticResource PrimaryActionButtonStyle}"/>
+                        <Button Content="Ausgewählten Call ausführen" Command="{Binding ExecuteSelectedApiCallCommand}" Width="220" Margin="8,0,0,0" DockPanel.Dock="Right" Style="{StaticResource PrimaryActionButtonStyle}"/>
+                        <Button Content="Backup analysieren + Call-Plan erzeugen" Command="{Binding AnalyzeApiPlanCommand}" Width="280" DockPanel.Dock="Right" Style="{StaticResource PrimaryActionButtonStyle}"/>
                     </DockPanel>
 
                     <Grid Grid.Row="4" Margin="0,12,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="4*"/>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="6*"/>
                         </Grid.ColumnDefinitions>
 
-                        <GroupBox Grid.Column="0" Header="Geplante Calls" Margin="0,0,8,0">
+                        <GroupBox Grid.Column="0" Header="Geplante Calls" Margin="0,0,10,0">
                             <ListView ItemsSource="{Binding ApiCalls}" SelectedItem="{Binding SelectedApiCall}">
                                 <ListView.View>
                                     <GridView>
@@ -136,7 +176,11 @@
                             </ListView>
                         </GroupBox>
 
-                        <Grid Grid.Column="1">
+                        <GridSplitter Grid.Column="1"
+                                      Margin="0,4"
+                                      Style="{StaticResource SubtleGridSplitterStyle}" />
+
+                        <Grid Grid.Column="2" Margin="10,0,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="*"/>
                                 <RowDefinition Height="*"/>

@@ -4,6 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using TeltonikaBackupBuilder.App.Services;
 
 namespace TeltonikaBackupBuilder.App;
 
@@ -30,11 +31,9 @@ public partial class App : Application
     {
         var details = BuildDetails("DispatcherUnhandledException", e.Exception);
         WriteCrashLog(details);
-        MessageBox.Show(
+        AppDialogService.ShowError(
             $"Unerwarteter Fehler: {e.Exception.Message}{Environment.NewLine}{Environment.NewLine}Details in:{Environment.NewLine}{CrashLogPath}",
-            "Anwendungsfehler",
-            MessageBoxButton.OK,
-            MessageBoxImage.Error);
+            "Anwendungsfehler");
         e.Handled = true;
     }
 

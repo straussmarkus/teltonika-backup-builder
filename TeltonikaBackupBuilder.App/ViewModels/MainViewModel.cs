@@ -51,6 +51,7 @@ public sealed class MainViewModel : ViewModelBase
         LogEntries = new ObservableCollection<string>();
         ApiLogEntries = new ObservableCollection<string>();
         ApiCalls = new ObservableCollection<ApiCallItemViewModel>();
+        ApiCalls.CollectionChanged += (_, _) => System.Windows.Input.CommandManager.InvalidateRequerySuggested();
     }
 
     public string SourceBackupPath
@@ -209,19 +210,19 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (!HostnameParser.TryParse(HostnamesInput, out var hostnames, out var error))
         {
-            MessageBox.Show(error ?? "Ungültige Eingabe.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning(error ?? "Ungueltige Eingabe.", "Fehler");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(SourceBackupPath) || !File.Exists(SourceBackupPath))
         {
-            MessageBox.Show("Bitte ein gültiges Backup auswählen.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning("Bitte ein gueltiges Backup auswaehlen.", "Fehler");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(OutputDirectory))
         {
-            MessageBox.Show("Kein Ausgabeverzeichnis gefunden.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning("Kein Ausgabeverzeichnis gefunden.", "Fehler");
             return;
         }
 
@@ -232,16 +233,16 @@ public sealed class MainViewModel : ViewModelBase
             var outputFileName = BackupCloneService.BuildOutputFileName(SourceBackupPath, existingHostname, hostname);
             if (!outputFileNames.Add(outputFileName))
             {
-                MessageBox.Show($"Der erzeugte Dateiname '{outputFileName}' ist doppelt. Bitte Hostnamen prüfen.",
-                    "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialogService.ShowWarning($"Der erzeugte Dateiname '{outputFileName}' ist doppelt. Bitte Hostnamen pruefen.",
+                    "Fehler");
                 return;
             }
 
             var outputPath = Path.Combine(OutputDirectory, outputFileName);
             if (File.Exists(outputPath))
             {
-                MessageBox.Show($"Die Datei '{outputFileName}' existiert bereits. Bitte löschen oder Hostnamen ändern.",
-                    "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+                AppDialogService.ShowWarning($"Die Datei '{outputFileName}' existiert bereits. Bitte loeschen oder Hostnamen aendern.",
+                    "Fehler");
                 return;
             }
         }
@@ -286,7 +287,7 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialogService.ShowError(ex.Message, "Fehler");
         }
         finally
         {
@@ -305,7 +306,7 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (string.IsNullOrWhiteSpace(SourceBackupPath) || !File.Exists(SourceBackupPath))
         {
-            MessageBox.Show("Bitte ein gültiges Quellbackup auswählen.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning("Bitte ein gueltiges Quellbackup auswaehlen.", "Fehler");
             return;
         }
 
@@ -335,7 +336,7 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialogService.ShowError(ex.Message, "Fehler");
         }
         finally
         {
@@ -378,14 +379,14 @@ public sealed class MainViewModel : ViewModelBase
     {
         if (!HasConnectionData())
         {
-            MessageBox.Show("Bitte IP-Adresse, Benutzername und Passwort für die Router-Verbindung eintragen.",
-                "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning("Bitte IP-Adresse und Benutzername fuer die Router-Verbindung eintragen.",
+                "Fehler");
             return;
         }
 
         if (string.IsNullOrWhiteSpace(SourceBackupPath) || !File.Exists(SourceBackupPath))
         {
-            MessageBox.Show("Bitte ein gültiges Quellbackup auswählen.", "Fehler", MessageBoxButton.OK, MessageBoxImage.Warning);
+            AppDialogService.ShowWarning("Bitte ein gueltiges Quellbackup auswaehlen.", "Fehler");
             return;
         }
 
@@ -473,7 +474,7 @@ public sealed class MainViewModel : ViewModelBase
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "Fehler", MessageBoxButton.OK, MessageBoxImage.Error);
+            AppDialogService.ShowError(ex.Message, "Fehler");
         }
         finally
         {
@@ -498,8 +499,7 @@ public sealed class MainViewModel : ViewModelBase
     private bool HasConnectionData()
     {
         return !string.IsNullOrWhiteSpace(RouterIpAddress)
-            && !string.IsNullOrWhiteSpace(RouterUsername)
-            && !string.IsNullOrWhiteSpace(RouterPassword);
+            && !string.IsNullOrWhiteSpace(RouterUsername);
     }
 
     private static string BuildRequestPreview(PlannedApiCall call, string routerAddress)
