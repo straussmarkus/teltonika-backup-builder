@@ -6,7 +6,6 @@ C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\b
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\MainWindow.g.cs
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\App.g.cs
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App_MarkupCompile.cache
-C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App_MarkupCompile.lref
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\MainWindow.baml
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App.g.resources
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App.GeneratedMSBuildEditorConfig.editorconfig
@@ -18,3 +17,4 @@ C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\o
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App.pdb
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App.genruntimeconfig.cache
 C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\ref\TeltonikaBackupBuilder.App.dll
+C:\Users\markus\GIT\teltonika-custom-backup-builder\TeltonikaBackupBuilder.App\obj\Debug\net10.0-windows\TeltonikaBackupBuilder.App.sourcelink.json
