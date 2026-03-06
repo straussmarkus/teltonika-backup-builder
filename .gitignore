@@ -1,4 +1,5 @@
 .dotnet/
+_docdump/
 original-backup/
 TeltonikaBackupBuilder.App/bin/
 TeltonikaBackupBuilder.App/obj/
