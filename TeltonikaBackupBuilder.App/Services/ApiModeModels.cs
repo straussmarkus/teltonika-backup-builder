@@ -5,9 +5,15 @@ namespace TeltonikaBackupBuilder.App.Services;
 public enum ApiCallKind
 {
     ApplyConfigFile,
-    ReloadConfig,
-    CreateBackup,
-    ReadBackupBase64
+    GenerateBackup,
+    DownloadBackup
+}
+
+public enum ApiRequestKind
+{
+    None,
+    Json,
+    MultipartFormData
 }
 
 public sealed record BackupConfigFile(string ArchivePath, byte[] Content);
@@ -24,9 +30,12 @@ public sealed record PlannedApiCall(
     string Name,
     string Method,
     string Path,
-    string RequestBody,
+    ApiRequestKind RequestKind,
+    string? RequestBody,
     ApiCallKind Kind,
-    string? CliCommand = null);
+    IReadOnlyDictionary<string, string>? FormFields = null,
+    string? UploadFilePath = null,
+    bool ExpectsBinaryResponse = false);
 
 public sealed record BackupConfigComparison(
     bool IsIdentical,
@@ -36,7 +45,8 @@ public sealed record ApiCallExecutionResult(
     bool IsSuccess,
     int? StatusCode,
     string ResponseText,
-    string? ErrorMessage);
+    string? ErrorMessage,
+    byte[]? ResponseBytes = null);
 
 public sealed record RouterDeviceInfo(
     string? Model,

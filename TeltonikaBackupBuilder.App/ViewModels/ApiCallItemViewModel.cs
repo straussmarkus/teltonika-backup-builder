@@ -23,7 +23,7 @@ public sealed class ApiCallItemViewModel : ViewModelBase
 
     public string Path => Call.Path;
 
-    public string RequestBody => Call.RequestBody;
+    public string RequestBody => Call.RequestBody ?? string.Empty;
 
     public ApiCallKind Kind => Call.Kind;
 

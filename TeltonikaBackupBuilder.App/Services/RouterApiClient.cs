@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
@@ -23,7 +24,7 @@ public sealed class RouterApiClient : IDisposable
 
         _httpClient = new HttpClient(handler)
         {
-            Timeout = TimeSpan.FromSeconds(30)
+            Timeout = TimeSpan.FromSeconds(60)
         };
     }
 
@@ -34,7 +35,13 @@ public sealed class RouterApiClient : IDisposable
     public async Task<string> LoginAsync(string username, string password, CancellationToken cancellationToken)
     {
         var directPayload = JsonSerializer.Serialize(new { username, password });
-        var directResult = await SendRawAsync(HttpMethod.Post, "/api/login", directPayload, token: null, cancellationToken);
+        var directResult = await SendRawAsync(
+            HttpMethod.Post,
+            "/api/login",
+            new StringContent(directPayload, Encoding.UTF8, "application/json"),
+            token: null,
+            expectsBinaryResponse: false,
+            cancellationToken);
         if (TryExtractToken(directResult.ResponseText, out var directToken))
         {
             return directToken;
@@ -48,7 +55,13 @@ public sealed class RouterApiClient : IDisposable
                 password
             }
         });
-        var wrappedResult = await SendRawAsync(HttpMethod.Post, "/api/login", wrappedPayload, token: null, cancellationToken);
+        var wrappedResult = await SendRawAsync(
+            HttpMethod.Post,
+            "/api/login",
+            new StringContent(wrappedPayload, Encoding.UTF8, "application/json"),
+            token: null,
+            expectsBinaryResponse: false,
+            cancellationToken);
         if (TryExtractToken(wrappedResult.ResponseText, out var wrappedToken))
         {
             return wrappedToken;
@@ -59,19 +72,24 @@ public sealed class RouterApiClient : IDisposable
     }
 
     public Task<ApiCallExecutionResult> ExecuteCallAsync(
-        string method,
-        string path,
-        string? requestBody,
+        PlannedApiCall call,
         string token,
         CancellationToken cancellationToken)
     {
-        var httpMethod = new HttpMethod(method);
-        return SendRawAsync(httpMethod, path, requestBody, token, cancellationToken);
+        var method = new HttpMethod(call.Method);
+        var content = CreateRequestContent(call);
+        return SendRawAsync(method, call.Path, content, token, call.ExpectsBinaryResponse, cancellationToken);
     }
 
     public async Task<RouterDeviceInfo> GetDeviceInfoAsync(string token, CancellationToken cancellationToken)
     {
-        var result = await SendRawAsync(HttpMethod.Get, "/api/system/device/status", requestBody: null, token, cancellationToken);
+        var result = await SendRawAsync(
+            HttpMethod.Get,
+            "/api/system/device/status",
+            requestContent: null,
+            token,
+            expectsBinaryResponse: false,
+            cancellationToken);
         if (!result.IsSuccess)
         {
             return new RouterDeviceInfo(null, null, result.ResponseText);
@@ -88,36 +106,51 @@ public sealed class RouterApiClient : IDisposable
         return new RouterDeviceInfo(model, firmware, result.ResponseText);
     }
 
-    public static bool TryExtractCliOutput(string responseText, out string output)
+    private static HttpContent? CreateRequestContent(PlannedApiCall call)
     {
-        output = string.Empty;
-        if (string.IsNullOrWhiteSpace(responseText))
+        switch (call.RequestKind)
         {
-            return false;
-        }
+            case ApiRequestKind.None:
+                return null;
+            case ApiRequestKind.Json:
+                var body = call.RequestBody ?? "{}";
+                return new StringContent(body, Encoding.UTF8, "application/json");
+            case ApiRequestKind.MultipartFormData:
+                if (string.IsNullOrWhiteSpace(call.UploadFilePath))
+                {
+                    throw new InvalidOperationException($"Upload-Datei fehlt fuer Call '{call.Name}'.");
+                }
 
-        try
-        {
-            using var document = JsonDocument.Parse(responseText);
-            output = TryGetString(document.RootElement, "data.stdout")
-                ?? TryGetString(document.RootElement, "data.output")
-                ?? TryGetString(document.RootElement, "data.response")
-                ?? TryGetString(document.RootElement, "stdout")
-                ?? TryGetString(document.RootElement, "output")
-                ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(output);
-        }
-        catch (JsonException)
-        {
-            return false;
+                if (!File.Exists(call.UploadFilePath))
+                {
+                    throw new FileNotFoundException("Upload-Datei wurde nicht gefunden.", call.UploadFilePath);
+                }
+
+                var multipart = new MultipartFormDataContent();
+                if (call.FormFields != null)
+                {
+                    foreach (var (key, value) in call.FormFields)
+                    {
+                        multipart.Add(new StringContent(value ?? string.Empty, Encoding.UTF8), key);
+                    }
+                }
+
+                var fileStream = File.OpenRead(call.UploadFilePath);
+                var fileContent = new StreamContent(fileStream);
+                fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/gzip");
+                multipart.Add(fileContent, "file", Path.GetFileName(call.UploadFilePath));
+                return multipart;
+            default:
+                throw new InvalidOperationException($"Unbekannter Request-Typ: {call.RequestKind}");
         }
     }
 
     private async Task<ApiCallExecutionResult> SendRawAsync(
         HttpMethod method,
         string path,
-        string? requestBody,
+        HttpContent? requestContent,
         string? token,
+        bool expectsBinaryResponse,
         CancellationToken cancellationToken)
     {
         var url = BuildAbsoluteUrl(path);
@@ -129,17 +162,26 @@ public sealed class RouterApiClient : IDisposable
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
 
-        if (requestBody != null)
+        if (requestContent != null)
         {
-            request.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+            request.Content = requestContent;
         }
 
         try
         {
-            using var response = await _httpClient.SendAsync(request, cancellationToken);
-            var text = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var response = await _httpClient.SendAsync(
+                request,
+                HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken);
             var statusCode = (int)response.StatusCode;
 
+            if (expectsBinaryResponse && response.IsSuccessStatusCode)
+            {
+                var bytes = await response.Content.ReadAsByteArrayAsync(cancellationToken);
+                return new ApiCallExecutionResult(true, statusCode, string.Empty, null, bytes);
+            }
+
+            var text = await response.Content.ReadAsStringAsync(cancellationToken);
             var apiSuccess = response.IsSuccessStatusCode && !IsExplicitApiFailure(text);
             var errorMessage = apiSuccess ? null : BuildErrorMessage(response.ReasonPhrase, text);
             return new ApiCallExecutionResult(apiSuccess, statusCode, text, errorMessage);
@@ -247,6 +289,7 @@ public sealed class RouterApiClient : IDisposable
             using var document = JsonDocument.Parse(responseText);
             var message = TryGetString(document.RootElement, "error.message")
                 ?? TryGetString(document.RootElement, "message")
+                ?? TryGetString(document.RootElement, "errors.0.error")
                 ?? TryGetString(document.RootElement, "errors.0.message");
             if (!string.IsNullOrWhiteSpace(message))
             {

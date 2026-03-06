@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -32,7 +33,6 @@ public sealed class MainViewModel : ViewModelBase
     private string _routerIpAddress = "192.168.2.1";
     private string _routerUsername = "admin";
     private string _routerPassword = string.Empty;
-    private string _cliEndpointPath = "/api/cli/actions/execute";
     private string _documentationUrl = string.Empty;
     private string _backupModel = "Unbekannt";
     private string _backupFirmware = "Unbekannt";
@@ -119,12 +119,6 @@ public sealed class MainViewModel : ViewModelBase
     {
         get => _routerPassword;
         set => SetProperty(ref _routerPassword, value);
-    }
-
-    public string CliEndpointPath
-    {
-        get => _cliEndpointPath;
-        set => SetProperty(ref _cliEndpointPath, value);
     }
 
     public string DocumentationUrl
@@ -329,7 +323,7 @@ public sealed class MainViewModel : ViewModelBase
             BackupFirmware = analysis.FirmwareVersion ?? "Unbekannt";
             DocumentationUrl = analysis.DocumentationUrl;
 
-            var plan = _plannerService.CreatePlan(analysis, CliEndpointPath);
+            var plan = _plannerService.CreatePlan(analysis);
             foreach (var plannedCall in plan)
             {
                 ApiCalls.Add(new ApiCallItemViewModel(plannedCall));
@@ -427,22 +421,18 @@ public sealed class MainViewModel : ViewModelBase
             foreach (var callItem in callsToRun.OrderBy(c => c.Order))
             {
                 callItem.Status = "Läuft...";
-                var result = await client.ExecuteCallAsync(
-                    callItem.Method,
-                    callItem.Path,
-                    callItem.RequestBody,
-                    token,
-                    CancellationToken.None);
+                var result = await ExecuteCallWithRetryAsync(client, callItem.Call, token, CancellationToken.None);
 
                 var responseSummary = BuildResponseSummary(result);
-                callItem.Response = result.ResponseText;
+                var detailedResponse = BuildResponseDetails(result);
+                callItem.Response = detailedResponse;
                 callItem.IsSuccess = result.IsSuccess;
                 callItem.Status = result.IsSuccess ? "OK" : "Fehler";
                 ApiLogEntries.Add($"[{callItem.Order}] {callItem.Name}: {responseSummary}");
 
                 if (ReferenceEquals(callItem, SelectedApiCall))
                 {
-                    SelectedApiCallResponse = responseSummary + Environment.NewLine + Environment.NewLine + result.ResponseText;
+                    SelectedApiCallResponse = responseSummary + Environment.NewLine + Environment.NewLine + detailedResponse;
                     SelectedApiCallRequest = BuildRequestPreview(callItem.Call, RouterIpAddress);
                 }
 
@@ -451,16 +441,15 @@ public sealed class MainViewModel : ViewModelBase
                     break;
                 }
 
-                if (callItem.Kind == ApiCallKind.ReadBackupBase64)
+                if (callItem.Kind == ApiCallKind.DownloadBackup)
                 {
-                    if (!TryExtractBackupBytes(result.ResponseText, out var backupBytes, out var extractError))
+                    if (result.ResponseBytes == null || !IsValidGzipArchive(result.ResponseBytes))
                     {
-                        throw new InvalidOperationException(
-                            $"Backup konnte nicht aus der API-Antwort gelesen werden: {extractError ?? "Unbekannter Fehler"}");
+                        throw new InvalidOperationException("Die Download-Antwort enthielt kein gueltiges .tar.gz Backup.");
                     }
 
                     generatedBackupPath = BuildApiGeneratedBackupPath(SourceBackupPath);
-                    await File.WriteAllBytesAsync(generatedBackupPath, backupBytes, CancellationToken.None);
+                    await File.WriteAllBytesAsync(generatedBackupPath, result.ResponseBytes, CancellationToken.None);
                     ApiLogEntries.Add($"Router-Backup gespeichert: {generatedBackupPath}");
                 }
             }
@@ -529,14 +518,47 @@ public sealed class MainViewModel : ViewModelBase
         var sb = new StringBuilder();
         sb.AppendLine($"{call.Method} {url}");
         sb.AppendLine("Authorization: Bearer <token>");
-        sb.AppendLine("Content-Type: application/json");
-        sb.AppendLine();
-        sb.AppendLine(FormatJson(call.RequestBody));
+
+        switch (call.RequestKind)
+        {
+            case ApiRequestKind.None:
+                break;
+            case ApiRequestKind.Json:
+                sb.AppendLine("Content-Type: application/json");
+                sb.AppendLine();
+                sb.AppendLine(FormatJson(call.RequestBody));
+                break;
+            case ApiRequestKind.MultipartFormData:
+                sb.AppendLine("Content-Type: multipart/form-data");
+                sb.AppendLine();
+                sb.AppendLine("form-data:");
+                if (call.FormFields != null)
+                {
+                    foreach (var field in call.FormFields)
+                    {
+                        sb.AppendLine($"  {field.Key}: {field.Value}");
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(call.UploadFilePath))
+                {
+                    sb.AppendLine($"  file: @{call.UploadFilePath}");
+                }
+                break;
+            default:
+                throw new InvalidOperationException($"Unbekannter Request-Typ: {call.RequestKind}");
+        }
+
         return sb.ToString();
     }
 
-    private static string FormatJson(string json)
+    private static string FormatJson(string? json)
     {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return string.Empty;
+        }
+
         try
         {
             using var document = JsonDocument.Parse(json);
@@ -559,48 +581,41 @@ public sealed class MainViewModel : ViewModelBase
         return Path.Combine(directory, $"{baseName}-api-result-{timestamp}.tar.gz");
     }
 
-    private static bool TryExtractBackupBytes(string responseText, out byte[] backupBytes, out string? error)
+    private static async Task<ApiCallExecutionResult> ExecuteCallWithRetryAsync(
+        RouterApiClient client,
+        PlannedApiCall call,
+        string token,
+        CancellationToken cancellationToken)
     {
-        backupBytes = Array.Empty<byte>();
-        error = null;
-
-        string candidate = string.Empty;
-        if (RouterApiClient.TryExtractCliOutput(responseText, out var output))
+        const int maxAttempts = 8;
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
-            candidate = output;
-        }
-
-        if (string.IsNullOrWhiteSpace(candidate))
-        {
-            candidate = responseText;
-        }
-
-        var normalized = candidate
-            .Replace("\r", string.Empty, StringComparison.Ordinal)
-            .Replace("\n", string.Empty, StringComparison.Ordinal)
-            .Trim();
-
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            error = "Leere Antwort.";
-            return false;
-        }
-
-        try
-        {
-            backupBytes = Convert.FromBase64String(normalized);
-            if (backupBytes.Length < 2 || backupBytes[0] != 0x1F || backupBytes[1] != 0x8B)
+            var result = await client.ExecuteCallAsync(call, token, cancellationToken);
+            if (result.IsSuccess || call.Kind != ApiCallKind.DownloadBackup || result.StatusCode != 404 || attempt == maxAttempts)
             {
-                error = "Antwort ist kein gültiges GZip-Backup (Header 1F 8B fehlt).";
-                return false;
+                return result;
             }
 
-            return true;
+            await Task.Delay(TimeSpan.FromSeconds(2), cancellationToken);
         }
-        catch (FormatException ex)
-        {
-            error = ex.Message;
-            return false;
-        }
+
+        return new ApiCallExecutionResult(false, null, string.Empty, "Download-Call konnte nicht ausgefuehrt werden.");
     }
+
+    private static string BuildResponseDetails(ApiCallExecutionResult result)
+    {
+        if (result.ResponseBytes == null)
+        {
+            return result.ResponseText;
+        }
+
+        var sha = Convert.ToHexString(SHA256.HashData(result.ResponseBytes));
+        return $"Binary response: {result.ResponseBytes.Length} bytes{Environment.NewLine}SHA256: {sha}";
+    }
+
+    private static bool IsValidGzipArchive(byte[] bytes)
+    {
+        return bytes.Length >= 2 && bytes[0] == 0x1F && bytes[1] == 0x8B;
+    }
+
 }
